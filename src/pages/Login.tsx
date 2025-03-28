@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BellIcon, ArrowLeft, AlertTriangle, GoogleIcon } from 'lucide-react';
+import { BellIcon, ArrowLeft, AlertTriangle } from 'lucide-react';
+import GoogleIcon from '@/components/icons/GoogleIcon';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
