@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -61,15 +62,8 @@ const ProfileSettings = () => {
         return;
       }
 
-      if (data) {
-        updateUser({
-          ...user,
-          user_metadata: {
-            ...user.user_metadata,
-            first_name: firstName,
-            last_name: lastName,
-          },
-        });
+      if (data?.user) {
+        updateUser(data.user);
       }
 
       alert('Profile updated successfully!');
@@ -87,12 +81,12 @@ const ProfileSettings = () => {
 
     setLoading(true);
     try {
-      const filePath = `avatars/${user!.id}/${file.name}`;
+      const filePath = `${user!.id}/${file.name}`;
       const { data, error } = await supabase.storage
-        .from('avatars')
+        .from('profile_images')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (error) {
@@ -100,7 +94,12 @@ const ProfileSettings = () => {
         return;
       }
 
-      const publicUrl = `${supabase.storageUrl}/avatars/${filePath}`;
+      // Get the public URL using the correct method
+      const { data: publicUrlData } = supabase.storage
+        .from('profile_images')
+        .getPublicUrl(filePath);
+
+      const publicUrl = publicUrlData.publicUrl;
       setAvatarUrl(publicUrl);
 
       // Update the profile with the new avatar URL
