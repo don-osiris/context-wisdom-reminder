@@ -1,129 +1,237 @@
-
-import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import ProfileImageUploader from '@/components/ProfileImageUploader';
-import AnimatedTransition from '@/components/AnimatedTransition';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
+import Header from '@/components/Header';
+import { supabase } from '@/lib/supabase';
 
 const ProfileSettings = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
+  const { user, updateUser } = useAuth();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.user_metadata?.first_name || '');
+      setLastName(user.user_metadata?.last_name || '');
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user!.id)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+      
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+        },
+      });
+
+      if (error) {
+        console.error('Error updating profile:', error);
+        return;
+      }
+
+      if (data) {
+        updateUser({
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            first_name: firstName,
+            last_name: lastName,
+          },
+        });
+      }
+
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const filePath = `avatars/${user!.id}/${file.name}`;
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Error uploading avatar:', error);
+        return;
+      }
+
+      const publicUrl = `${supabase.storageUrl}/avatars/${filePath}`;
+      setAvatarUrl(publicUrl);
+
+      // Update the profile with the new avatar URL
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user!.id,
+          avatar_url: publicUrl,
+        });
+
+      if (profileError) {
+        console.error('Error updating profile with avatar URL:', profileError);
+        return;
+      }
+
+      // Optionally, update the user's metadata as well
+      const { error: userError } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: publicUrl,
+        },
+      });
+
+      if (userError) {
+        console.error('Error updating user with avatar URL:', userError);
+        return;
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="fixed top-0 left-0 right-0 z-40 py-4 px-6 glass shadow-sm">
-        <div className="max-w-5xl mx-auto w-full">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => navigate('/settings')}
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h1 className="text-xl font-medium">Profile Settings</h1>
+    <div className="min-h-screen bg-background text-foreground pb-24">
+      <Header />
+      
+      <main className="pt-20 sm:pt-24 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div className="glass-card rounded-lg p-6">
+            <h2 className="text-2xl font-semibold mb-4">Profile Settings</h2>
+            
+            <div className="flex items-center space-x-4 mb-6">
+              <Avatar className="w-20 h-20 border border-border">
+                <AvatarImage src={avatarUrl || ''} alt="Avatar" />
+                <AvatarFallback className="bg-primary/10">
+                  {user?.user_metadata?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div>
+                <Label htmlFor="avatar-upload" className="cursor-pointer hover:text-primary">
+                  {loading ? 'Uploading...' : 'Change Avatar'}
+                </Label>
+                <Input
+                  type="file"
+                  id="avatar-upload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                  disabled={loading}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Upload a new avatar image
+                </p>
+              </div>
             </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="first-name">First Name</Label>
+                <Input
+                  type="text"
+                  id="first-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="last-name">Last Name</Label>
+                <Input
+                  type="text"
+                  id="last-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <Button 
+              className="w-full mt-4"
+              onClick={handleUpdateProfile}
+              disabled={loading}
+            >
+              {loading ? 'Updating...' : 'Update Profile'}
+            </Button>
           </div>
         </div>
-      </header>
-      
-      <main className="pt-24 px-6 pb-16">
-        <div className="max-w-3xl mx-auto">
-          <AnimatedTransition animation="slide-down" delay={100}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-center">Your Profile</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center">
-                <ProfileImageUploader />
-                
-                <div className="w-full mt-8">
-                  <div className="grid gap-4">
-                    <div className="space-y-1.5">
-                      <h3 className="text-sm font-medium text-muted-foreground">Email</h3>
-                      <p className="text-base">{user?.email}</p>
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <h3 className="text-sm font-medium text-muted-foreground">Name</h3>
-                      <p className="text-base">
-                        {user?.user_metadata?.first_name} {user?.user_metadata?.last_name}
-                      </p>
-                    </div>
-                  </div>
+        
+        <div className="max-w-3xl mx-auto mt-6">
+          <div className="glass-card rounded-lg p-6">
+            <h3 className="text-lg font-medium mb-4">Advanced Features</h3>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium">Calendar & Message Integration</p>
+                  <p className="text-sm text-muted-foreground">Enable scanning of calendars and messages</p>
                 </div>
-              </CardContent>
-            </Card>
-          </AnimatedTransition>
-          
-          <AnimatedTransition animation="slide-up" delay={200}>
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Permissions Walkthrough</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Why Arlo Alert Needs Permissions</h3>
-                  <p className="text-muted-foreground">
-                    To provide you with the best reminder experience, Arlo Alert requires access to several device features. 
-                    Here's a detailed explanation of each permission and how it enhances your experience:
-                  </p>
-                  
-                  <div className="grid gap-4 mt-4">
-                    <div className="space-y-2 border-l-4 border-primary/70 pl-4 py-1">
-                      <h4 className="font-medium">Notifications</h4>
-                      <p className="text-sm text-muted-foreground">
-                        We use notifications to alert you about upcoming reminders, ensuring you never miss important events or tasks.
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2 border-l-4 border-primary/70 pl-4 py-1">
-                      <h4 className="font-medium">Calendar Access</h4>
-                      <p className="text-sm text-muted-foreground">
-                        By accessing your calendar, we can suggest reminders based on your existing events and help you avoid scheduling conflicts.
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2 border-l-4 border-primary/70 pl-4 py-1">
-                      <h4 className="font-medium">Microphone</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Voice input allows you to create reminders hands-free, making it easier to capture thoughts on the go.
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2 border-l-4 border-primary/70 pl-4 py-1">
-                      <h4 className="font-medium">Location</h4>
-                      <p className="text-sm text-muted-foreground">
-                        With location access, we can send reminders based on where you are, like grocery lists when you're near the store.
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2 border-l-4 border-primary/70 pl-4 py-1">
-                      <h4 className="font-medium">Camera</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Camera access allows you to personalize your profile with a photo and attach images to reminders for visual context.
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2 border-l-4 border-primary/70 pl-4 py-1">
-                      <h4 className="font-medium">Background Processing</h4>
-                      <p className="text-sm text-muted-foreground">
-                        This ensures time-sensitive reminders are delivered even when the app isn't actively open on your screen.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <p className="text-sm mt-4 text-muted-foreground">
-                    Your data privacy is important to us. All permissions are optional, but enabling them provides the most seamless and powerful reminder experience.
-                  </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/settings')}
+                >
+                  Manage
+                </Button>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium">Permissions Guide</p>
+                  <p className="text-sm text-muted-foreground">Learn about permissions Arlo Alert needs</p>
                 </div>
-              </CardContent>
-            </Card>
-          </AnimatedTransition>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/permissions')}
+                >
+                  View
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
