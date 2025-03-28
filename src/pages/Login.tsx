@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,12 +9,14 @@ import GoogleIcon from '@/components/icons/GoogleIcon';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 const Login = () => {
   const navigate = useNavigate();
   const { signIn, signInWithGoogle, isLoading, isConfigured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -125,9 +128,46 @@ const Login = () => {
               <GoogleIcon className="h-4 w-4" />
               Google
             </Button>
+            <Button 
+              variant="link" 
+              size="sm" 
+              type="button" 
+              className="w-full mt-2 text-sm text-muted-foreground"
+              onClick={() => setShowHelp(true)}
+            >
+              Having trouble signing in?
+            </Button>
           </div>
         </AnimatedTransition>
       </main>
+
+      <Sheet open={showHelp} onOpenChange={setShowHelp}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Sign In Help</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            <h3 className="font-medium">Google Sign In</h3>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p>For Google Sign In to work correctly:</p>
+              <ol className="list-decimal pl-4 space-y-2">
+                <li>Make sure you've enabled the Google provider in your Supabase project.</li>
+                <li>Ensure you've configured the correct redirect URL in Google Cloud Console.</li>
+                <li>Check that the Site URL and Redirect URLs are properly set in Supabase Authentication settings.</li>
+              </ol>
+            </div>
+            <div className="pt-4">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowHelp(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
