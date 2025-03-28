@@ -14,7 +14,7 @@ const Onboarding = () => {
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
-      navigate('/login');
+      navigate('/signup', { state: { returnTo: '/onboarding' } });
     }
   };
 
@@ -98,7 +98,7 @@ const Onboarding = () => {
           <AnimatedTransition animation="fade" className="text-center max-w-md">
             <h1 className="text-3xl font-bold mb-4">Ready to Get Started?</h1>
             <p className="text-muted-foreground mb-8">
-              Create an account to save your preferences and reminders across devices
+              Create an account to connect your calendars, emails, and messages for personalized reminders
             </p>
             
             <div className="flex flex-col gap-4 mb-8 max-w-xs mx-auto">

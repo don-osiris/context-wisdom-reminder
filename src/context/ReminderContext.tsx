@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export interface Reminder {
   id: string;
@@ -29,6 +31,8 @@ interface ReminderContextType {
   completeReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
   updateReminder: (id: string, reminderData: Partial<Reminder>) => void;
+  isLoading: boolean;
+  hasCompletedOnboarding: boolean;
 }
 
 const ReminderContext = createContext<ReminderContextType | undefined>(undefined);
@@ -101,32 +105,117 @@ const generateExampleReminders = (): Reminder[] => {
 };
 
 export const ReminderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [reminders, setReminders] = useState<Reminder[]>(generateExampleReminders());
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
-    // In a real app, we would load reminders from storage here
-    // For example:
-    // const savedReminders = localStorage.getItem('reminders');
-    // if (savedReminders) {
-    //   try {
-    //     const parsedReminders = JSON.parse(savedReminders);
-    //     // Need to convert string dates back to Date objects
-    //     const processedReminders = parsedReminders.map((r: any) => ({
-    //       ...r,
-    //       createdAt: new Date(r.createdAt),
-    //       dueDate: r.dueDate ? new Date(r.dueDate) : undefined,
-    //     }));
-    //     setReminders(processedReminders);
-    //   } catch (error) {
-    //     console.error('Failed to parse saved reminders', error);
-    //   }
-    // }
-  }, []);
+    if (user) {
+      // Check if user has completed onboarding
+      const onboardingCompleted = user.user_metadata?.onboarding_completed || false;
+      setHasCompletedOnboarding(onboardingCompleted);
+      
+      if (onboardingCompleted) {
+        // For now, we'll simulate loading real data
+        setIsLoading(true);
+        fetchRemindersFromIntegrations();
+      } else {
+        // Use example data for users who haven't completed onboarding
+        setReminders(generateExampleReminders());
+        setIsLoading(false);
+      }
+    } else {
+      // Use example data for users who aren't logged in
+      setReminders(generateExampleReminders());
+      setIsLoading(false);
+    }
+  }, [user]);
 
-  useEffect(() => {
-    // In a real app, we would save reminders to storage here
-    // localStorage.setItem('reminders', JSON.stringify(reminders));
-  }, [reminders]);
+  const fetchRemindersFromIntegrations = async () => {
+    try {
+      // Simulate fetching real data from connected services
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // For demonstration purposes, we'll simulate having read real reminders
+      // In a real implementation, this would make API calls to the user's connected services
+      
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const nextWeek = new Date(now);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      
+      // These would actually come from the user's email, calendar, etc.
+      const realReminders: Reminder[] = [
+        {
+          id: 'email-1',
+          title: 'Dentist Appointment',
+          description: 'Annual check-up with Dr. Johnson at Smile Dental',
+          completed: false,
+          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
+          dueDate: tomorrow,
+          priority: 'medium',
+          source: 'email',
+          contextType: 'health',
+        },
+        {
+          id: 'calendar-1',
+          title: 'Team Standup Meeting',
+          description: 'Daily standup with the engineering team',
+          completed: false,
+          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24), // 1 day ago
+          dueDate: new Date(now.getTime() + 1000 * 60 * 60), // In 1 hour
+          priority: 'high',
+          source: 'text',
+          contextType: 'work',
+        },
+        {
+          id: 'sms-1',
+          title: 'Package Delivery',
+          description: 'Your package will be delivered today between 2-4 PM',
+          completed: false,
+          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 3), // 3 hours ago
+          dueDate: new Date(now.getTime() + 1000 * 60 * 60 * 3), // In 3 hours
+          priority: 'medium',
+          source: 'message',
+          contextType: 'personal',
+        },
+        {
+          id: 'location-1',
+          title: 'Pick up dry cleaning',
+          description: 'At Sparkle Cleaners on Main St',
+          completed: false,
+          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
+          dueDate: tomorrow,
+          priority: 'low',
+          source: 'location',
+          contextType: 'errands',
+        },
+        {
+          id: 'email-2',
+          title: 'Flight check-in',
+          description: 'Check in for your flight to San Francisco',
+          completed: false,
+          createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 12), // 12 hours ago
+          dueDate: new Date(now.getTime() + 1000 * 60 * 60 * 24), // In 24 hours
+          priority: 'high',
+          source: 'email',
+          contextType: 'travel',
+        },
+      ];
+      
+      setReminders(realReminders);
+    } catch (error) {
+      console.error('Error fetching reminders:', error);
+      toast.error('Failed to load your reminders');
+      // Fallback to example data
+      setReminders(generateExampleReminders());
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const addReminder = (reminderData: NewReminder) => {
     const newReminder: Reminder = {
@@ -181,6 +270,8 @@ export const ReminderProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         completeReminder,
         deleteReminder,
         updateReminder,
+        isLoading,
+        hasCompletedOnboarding
       }}
     >
       {children}

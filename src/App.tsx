@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import ProfileSettings from "./pages/ProfileSettings";
 import NotFound from "./pages/NotFound";
 import Onboarding from "./pages/Onboarding";
+import OnboardingFlow from "./pages/OnboardingFlow";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PermissionsGuidePage from "./pages/PermissionsGuidePage";
@@ -42,6 +43,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<ProfileSettings />} />
               <Route path="/permissions" element={<PermissionsGuidePage />} />
+              <Route path="/onboarding" element={<OnboardingFlow />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </ReminderProvider>
