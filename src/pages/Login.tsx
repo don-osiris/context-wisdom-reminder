@@ -4,20 +4,24 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BellIcon, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { BellIcon, ArrowLeft, AlertTriangle, GoogleIcon } from 'lucide-react';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, isLoading, isConfigured } = useAuth();
+  const { signIn, signInWithGoogle, isLoading, isConfigured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await signIn(email, password);
+  };
+
+  const handleGoogleSignIn = async () => {
+    await signInWithGoogle();
   };
 
   return (
@@ -110,12 +114,16 @@ const Login = () => {
             </div>
           </div>
           
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <Button variant="outline" type="button" className="w-full" disabled={!isConfigured}>
+          <div className="mt-6">
+            <Button 
+              variant="outline" 
+              type="button" 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={handleGoogleSignIn}
+              disabled={!isConfigured || isLoading}
+            >
+              <GoogleIcon className="h-4 w-4" />
               Google
-            </Button>
-            <Button variant="outline" type="button" className="w-full" disabled={!isConfigured}>
-              Apple
             </Button>
           </div>
         </AnimatedTransition>

@@ -4,14 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BellIcon, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { BellIcon, ArrowLeft, AlertTriangle, GoogleIcon } from 'lucide-react';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Signup = () => {
   const navigate = useNavigate();
-  const { signUp, isLoading, isConfigured } = useAuth();
+  const { signUp, signInWithGoogle, isLoading, isConfigured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -20,6 +20,10 @@ const Signup = () => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await signUp(email, password, firstName, lastName);
+  };
+
+  const handleGoogleSignup = async () => {
+    await signInWithGoogle();
   };
 
   return (
@@ -135,12 +139,16 @@ const Signup = () => {
             </div>
           </div>
           
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <Button variant="outline" type="button" className="w-full" disabled={!isConfigured}>
+          <div className="mt-6">
+            <Button 
+              variant="outline" 
+              type="button" 
+              className="w-full flex items-center justify-center gap-2" 
+              onClick={handleGoogleSignup}
+              disabled={!isConfigured || isLoading}
+            >
+              <GoogleIcon className="h-4 w-4" />
               Google
-            </Button>
-            <Button variant="outline" type="button" className="w-full" disabled={!isConfigured}>
-              Apple
             </Button>
           </div>
         </AnimatedTransition>

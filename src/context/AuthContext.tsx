@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (updatedUser: User) => void;
+  signInWithGoogle: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -59,6 +61,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error signing in:', error);
       toast.error(error.message || 'Error signing in');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/home',
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // No toast here as the user will be redirected away
+    } catch (error: any) {
+      console.error('Error signing in with Google:', error);
+      toast.error(error.message || 'Error signing in with Google');
       setIsLoading(false);
     }
   };
@@ -125,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signOut,
         updateUser,
+        signInWithGoogle,
       }}
     >
       {children}
