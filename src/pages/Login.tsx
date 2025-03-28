@@ -6,22 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BellIcon, ArrowLeft } from 'lucide-react';
 import AnimatedTransition from '@/components/AnimatedTransition';
-import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, isLoading } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate login process
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success("Login successful");
-      navigate('/home');
-    }, 1500);
+    await signIn(email, password);
   };
 
   return (
@@ -45,7 +40,14 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="w-full space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="your.email@example.com" required />
+              <Input 
+                id="email" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com" 
+                required 
+              />
             </div>
             
             <div className="space-y-2">
@@ -55,7 +57,14 @@ const Login = () => {
                   Forgot password?
                 </Button>
               </div>
-              <Input id="password" type="password" placeholder="••••••••" required />
+              <Input 
+                id="password" 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••" 
+                required 
+              />
             </div>
             
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -89,10 +98,10 @@ const Login = () => {
           </div>
           
           <div className="mt-6 grid grid-cols-2 gap-4">
-            <Button variant="outline" type="button" onClick={() => navigate('/home')} className="w-full">
+            <Button variant="outline" type="button" className="w-full">
               Google
             </Button>
-            <Button variant="outline" type="button" onClick={() => navigate('/home')} className="w-full">
+            <Button variant="outline" type="button" className="w-full">
               Apple
             </Button>
           </div>

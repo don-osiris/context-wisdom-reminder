@@ -6,22 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BellIcon, ArrowLeft } from 'lucide-react';
 import AnimatedTransition from '@/components/AnimatedTransition';
-import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const Signup = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const { signUp, isLoading } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Simulate signup process
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success("Account created successfully");
-      navigate('/home');
-    }, 1500);
+    await signUp(email, password, firstName, lastName);
   };
 
   return (
@@ -46,22 +43,50 @@ const Signup = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
-                <Input id="firstName" type="text" placeholder="John" required />
+                <Input 
+                  id="firstName" 
+                  type="text" 
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="John" 
+                  required 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last Name</Label>
-                <Input id="lastName" type="text" placeholder="Doe" required />
+                <Input 
+                  id="lastName" 
+                  type="text" 
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe" 
+                  required 
+                />
               </div>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="your.email@example.com" required />
+              <Input 
+                id="email" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com" 
+                required 
+              />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" required />
+              <Input 
+                id="password" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••" 
+                required 
+              />
               <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
             </div>
             
@@ -96,10 +121,10 @@ const Signup = () => {
           </div>
           
           <div className="mt-6 grid grid-cols-2 gap-4">
-            <Button variant="outline" type="button" onClick={() => navigate('/home')} className="w-full">
+            <Button variant="outline" type="button" className="w-full">
               Google
             </Button>
-            <Button variant="outline" type="button" onClick={() => navigate('/home')} className="w-full">
+            <Button variant="outline" type="button" className="w-full">
               Apple
             </Button>
           </div>
