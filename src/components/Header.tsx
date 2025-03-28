@@ -1,11 +1,13 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { SettingsIcon, BellIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import AnimatedTransition from './AnimatedTransition';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface HeaderProps {
   className?: string;
@@ -17,6 +19,8 @@ const Header: React.FC<HeaderProps> = ({ className, onVoiceClick }) => {
   const location = useLocation();
   const [scrolled, setScrolled] = React.useState(false);
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -26,6 +30,38 @@ const Header: React.FC<HeaderProps> = ({ className, onVoiceClick }) => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user!.id)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+      
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  // Handle avatar click to navigate to profile settings
+  const handleAvatarClick = () => {
+    navigate('/profile');
+  };
 
   return (
     <header 
@@ -60,10 +96,14 @@ const Header: React.FC<HeaderProps> = ({ className, onVoiceClick }) => {
                 <SettingsIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </button>
               
-              <Avatar className="w-9 h-9 border border-border">
-                <AvatarImage src="https://i.pravatar.cc/300" alt="User" />
-                <AvatarFallback>U</AvatarFallback>
-              </Avatar>
+              <button onClick={handleAvatarClick} className="outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-2 rounded-full">
+                <Avatar className="w-9 h-9 border border-border cursor-pointer hover:border-primary/30 transition-colors">
+                  <AvatarImage src={avatarUrl || ''} alt="User" />
+                  <AvatarFallback className="bg-primary/10">
+                    {user?.user_metadata?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
             </div>
           </AnimatedTransition>
         </div>
