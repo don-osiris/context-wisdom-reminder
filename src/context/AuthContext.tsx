@@ -20,21 +20,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isConfigured] = useState(isSupabaseAvailable());
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!isConfigured) {
+      console.warn('Supabase is not configured properly. Authentication will not work.');
+      return;
+    }
+    
+    // Only attempt to get session if Supabase is configured
     const getSession = async () => {
-      setIsLoading(true);
-      
-      if (!isConfigured) {
-        console.warn('Supabase is not configured properly. Authentication will not work.');
-        setIsLoading(false);
-        return;
-      }
-      
       try {
+        setIsLoading(true);
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -53,15 +52,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     getSession();
 
-    if (isConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-      });
+    // Only set up auth state change listener if Supabase is configured
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+    });
 
-      return () => subscription.unsubscribe();
-    }
+    return () => subscription.unsubscribe();
   }, [isConfigured]);
 
   const signIn = async (email: string, password: string) => {
