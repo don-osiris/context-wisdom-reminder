@@ -39,6 +39,14 @@ interface IntegrationItemProps {
   onDisconnect: () => void;
 }
 
+interface PermissionItemProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  enabled: boolean;
+  onToggle: () => void;
+}
+
 const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) => {
   // Email integrations
   const [personalMailEnabled, setPersonalMailEnabled] = React.useState(false);
@@ -53,6 +61,11 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
   const [smsScanning, setSmsScanning] = React.useState(false);
   const [whatsappScanning, setWhatsappScanning] = React.useState(false);
   const [telegramScanning, setTelegramScanning] = React.useState(false);
+  
+  // Permissions
+  const [notificationsPermission, setNotificationsPermission] = useState(false);
+  const [locationPermission, setLocationPermission] = useState(false);
+  const [backgroundSyncPermission, setBackgroundSyncPermission] = useState(false);
   
   // Mock connect/disconnect functions
   const handleConnect = (service: string) => {
@@ -93,6 +106,30 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
     else if (service === 'telegram-scanning') setTelegramScanning(false);
     
     toast.success(`Disconnected from ${service}`);
+  };
+  
+  // Toggle permission functions
+  const togglePermission = (permission: string) => {
+    console.log(`Toggling ${permission} permission...`);
+    
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 800)), 
+      {
+        loading: `Updating permission...`,
+        success: () => {
+          if (permission === 'notifications') setNotificationsPermission(prev => !prev);
+          else if (permission === 'location') setLocationPermission(prev => !prev);
+          else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
+          
+          const newState = permission === 'notifications' ? !notificationsPermission : 
+                          permission === 'location' ? !locationPermission : 
+                          !backgroundSyncPermission;
+          
+          return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
+        },
+        error: 'Failed to update permission. Please try again.',
+      }
+    );
   };
   
   return (
@@ -233,21 +270,21 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
           <Separator className="my-4" />
           
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="auto-sync" className="font-medium">Auto Sync</Label>
-                <p className="text-sm text-muted-foreground">Automatically sync data every 15 minutes</p>
-              </div>
-              <Switch id="auto-sync" defaultChecked />
-            </div>
+            <PermissionItem
+              title="Auto Sync"
+              description="Automatically sync data every 15 minutes"
+              icon={<RefreshCcwIcon className="w-5 h-5" />}
+              enabled={notificationsPermission}
+              onToggle={() => togglePermission('notifications')}
+            />
             
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="background-sync" className="font-medium">Background Sync</Label>
-                <p className="text-sm text-muted-foreground">Allow syncing in background (uses more battery)</p>
-              </div>
-              <Switch id="background-sync" defaultChecked />
-            </div>
+            <PermissionItem
+              title="Background Sync"
+              description="Allow syncing in background (uses more battery)"
+              icon={<RefreshCcwIcon className="w-5 h-5" />}
+              enabled={backgroundSyncPermission}
+              onToggle={() => togglePermission('background-sync')}
+            />
             
             <div className="pt-2">
               <Button variant="outline" className="w-full justify-center gap-2">
@@ -273,20 +310,41 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
           
           <Separator className="my-4" />
           
-          <div className="space-y-2 text-sm">
-            <p>For the reminder agent to function optimally, you'll need to grant these permissions:</p>
-            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li><span className="font-medium text-foreground">Calendar Access:</span> To read and create calendar events</li>
-              <li><span className="font-medium text-foreground">Notification Access:</span> To scan notifications for appointment details</li>
-              <li><span className="font-medium text-foreground">SMS Access:</span> To read messages containing appointment information</li>
-              <li><span className="font-medium text-foreground">Background Processing:</span> To create reminders even when app is closed</li>
-            </ul>
+          <div className="space-y-4">
+            <PermissionItem
+              title="Calendar Access"
+              description="To read and create calendar events"
+              icon={<CalendarIcon className="w-5 h-5" />}
+              enabled={googleCalendarEnabled || outlookCalendarEnabled}
+              onToggle={() => {
+                if (!googleCalendarEnabled && !outlookCalendarEnabled) {
+                  handleConnect('google-calendar');
+                } else {
+                  handleDisconnect('google-calendar');
+                  handleDisconnect('outlook-calendar');
+                }
+              }}
+            />
             
-            <p className="mt-3">You can manage these permissions in your device settings at any time.</p>
+            <PermissionItem
+              title="Notification Access"
+              description="To scan notifications for appointment details"
+              icon={<BellIcon className="w-5 h-5" />}
+              enabled={notificationsPermission}
+              onToggle={() => togglePermission('notifications')}
+            />
             
-            <div className="pt-2">
+            <PermissionItem
+              title="Location Access"
+              description="To provide location-based reminders"
+              icon={<MapPinIcon className="w-5 h-5" />}
+              enabled={locationPermission}
+              onToggle={() => togglePermission('location')}
+            />
+            
+            <div className="pt-4">
               <Button variant="outline" className="w-full justify-center mt-2">
-                Review Permissions
+                Review All Permissions
               </Button>
             </div>
           </div>
@@ -353,6 +411,46 @@ const IntegrationItem: React.FC<IntegrationItemProps> = ({
           Connect
         </Button>
       )}
+    </div>
+  );
+};
+
+const PermissionItem: React.FC<PermissionItemProps> = ({
+  title,
+  description,
+  icon,
+  enabled,
+  onToggle
+}) => {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-start space-x-3">
+        <div className={cn(
+          "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+          enabled ? "bg-emerald-500/10" : "bg-muted"
+        )}>
+          {React.cloneElement(icon as React.ReactElement, {
+            className: cn(
+              "w-5 h-5",
+              enabled ? "text-emerald-500" : "text-muted-foreground"
+            )
+          })}
+        </div>
+        <div>
+          <h4 className="font-medium">{title}</h4>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <span className="text-sm font-medium">
+          {enabled ? "Enabled" : "Disabled"}
+        </span>
+        <Switch 
+          checked={enabled}
+          onCheckedChange={onToggle}
+        />
+      </div>
     </div>
   );
 };
