@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BellIcon, ArrowLeft } from 'lucide-react';
+import { BellIcon, ArrowLeft, AlertTriangle } from 'lucide-react';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, isConfigured } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
@@ -37,6 +38,16 @@ const Login = () => {
             <p className="text-muted-foreground text-sm mt-1">Sign in to your Arlo Alert account</p>
           </div>
           
+          {!isConfigured && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Authentication Not Configured</AlertTitle>
+              <AlertDescription>
+                Supabase environment variables are missing. Please connect to Supabase and set up your environment variables.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <form onSubmit={handleSubmit} className="w-full space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -47,6 +58,7 @@ const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your.email@example.com" 
                 required 
+                disabled={!isConfigured}
               />
             </div>
             
@@ -64,10 +76,11 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••" 
                 required 
+                disabled={!isConfigured}
               />
             </div>
             
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading || !isConfigured}>
               {isLoading ? (
                 <>
                   <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-b-transparent" />
@@ -98,10 +111,10 @@ const Login = () => {
           </div>
           
           <div className="mt-6 grid grid-cols-2 gap-4">
-            <Button variant="outline" type="button" className="w-full">
+            <Button variant="outline" type="button" className="w-full" disabled={!isConfigured}>
               Google
             </Button>
-            <Button variant="outline" type="button" className="w-full">
+            <Button variant="outline" type="button" className="w-full" disabled={!isConfigured}>
               Apple
             </Button>
           </div>

@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseAvailable } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isConfigured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -20,36 +21,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isConfigured] = useState(isSupabaseAvailable());
   const navigate = useNavigate();
 
   useEffect(() => {
     const getSession = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase.auth.getSession();
       
-      if (error) {
-        console.error('Error getting session:', error);
-        toast.error('Authentication error');
-      } else {
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
+      if (!isConfigured) {
+        console.warn('Supabase is not configured properly. Authentication will not work.');
+        setIsLoading(false);
+        return;
       }
       
-      setIsLoading(false);
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          toast.error('Authentication error');
+        } else {
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+        }
+      } catch (error) {
+        console.error('Failed to get session:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    if (isConfigured) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
-  }, []);
+      return () => subscription.unsubscribe();
+    }
+  }, [isConfigured]);
 
   const signIn = async (email: string, password: string) => {
+    if (!isConfigured) {
+      toast.error('Authentication is not configured');
+      console.error('Cannot sign in: Supabase is not configured properly');
+      return;
+    }
+    
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signInWithPassword({
@@ -72,6 +93,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
+    if (!isConfigured) {
+      toast.error('Authentication is not configured');
+      console.error('Cannot sign up: Supabase is not configured properly');
+      return;
+    }
+    
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signUp({
@@ -100,6 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    if (!isConfigured) {
+      toast.error('Authentication is not configured');
+      console.error('Cannot sign out: Supabase is not configured properly');
+      return;
+    }
+    
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signOut();
@@ -124,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         isLoading,
+        isConfigured,
         signIn,
         signUp,
         signOut,
