@@ -38,6 +38,7 @@ interface IntegrationItemProps {
   isConnected: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
+  platform?: 'android' | 'ios' | 'web';
 }
 
 interface PermissionItemProps {
@@ -48,7 +49,18 @@ interface PermissionItemProps {
   onToggle: () => void;
 }
 
+// Detect platform (simplified version)
+const detectPlatform = (): 'android' | 'ios' | 'web' => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (/android/i.test(userAgent)) return 'android';
+  if (/iphone|ipad|ipod/i.test(userAgent)) return 'ios';
+  return 'web';
+};
+
 const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) => {
+  // Platform detection
+  const [platform, setPlatform] = useState<'android' | 'ios' | 'web'>('web');
+  
   // Email integrations
   const [personalMailEnabled, setPersonalMailEnabled] = React.useState(false);
   const [workMailEnabled, setWorkMailEnabled] = React.useState(false);
@@ -68,29 +80,72 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
   const [locationPermission, setLocationPermission] = useState(false);
   const [backgroundSyncPermission, setBackgroundSyncPermission] = useState(false);
   
-  // Mock connect/disconnect functions
+  useEffect(() => {
+    setPlatform(detectPlatform());
+  }, []);
+  
+  // Mock connect/disconnect functions with platform-specific behavior
   const handleConnect = (service: string) => {
-    console.log(`Connecting to ${service}...`);
+    console.log(`Connecting to ${service} on ${platform}...`);
     
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1000)), 
-      {
-        loading: `Connecting to ${service}...`,
-        success: () => {
-          if (service === 'personal-mail') setPersonalMailEnabled(true);
-          else if (service === 'work-mail') setWorkMailEnabled(true);
-          else if (service === 'sms') setSmsEnabled(true);
-          else if (service === 'google-calendar') setGoogleCalendarEnabled(true);
-          else if (service === 'outlook-calendar') setOutlookCalendarEnabled(true);
-          else if (service === 'sms-scanning') setSmsScanning(true);
-          else if (service === 'whatsapp-scanning') setWhatsappScanning(true);
-          else if (service === 'telegram-scanning') setTelegramScanning(true);
-          
-          return `Connected to ${service} successfully!`;
-        },
-        error: 'Connection failed. Please try again.',
-      }
-    );
+    // Android-specific permission request simulation
+    if (platform === 'android') {
+      toast.promise(
+        new Promise((resolve) => setTimeout(resolve, 1500)), 
+        {
+          loading: `Requesting Android permission for ${service}...`,
+          success: () => {
+            if (service === 'personal-mail') {
+              toast.info('Opening Gmail account selection');
+              setTimeout(() => setPersonalMailEnabled(true), 1000);
+            }
+            else if (service === 'work-mail') {
+              toast.info('Opening Outlook account selection');
+              setTimeout(() => setWorkMailEnabled(true), 1000);
+            }
+            else if (service === 'sms') {
+              toast.info('Requesting SMS permission');
+              setTimeout(() => setSmsEnabled(true), 1000);
+            }
+            else if (service === 'google-calendar') {
+              toast.info('Opening Google Calendar selection');
+              setTimeout(() => setGoogleCalendarEnabled(true), 1000);
+            }
+            else if (service === 'outlook-calendar') {
+              toast.info('Opening Outlook Calendar selection');
+              setTimeout(() => setOutlookCalendarEnabled(true), 1000);
+            }
+            else if (service === 'sms-scanning') setSmsScanning(true);
+            else if (service === 'whatsapp-scanning') setWhatsappScanning(true);
+            else if (service === 'telegram-scanning') setTelegramScanning(true);
+            
+            return `Permission granted for ${service}`;
+          },
+          error: 'Permission denied. Please try again and approve the permission request.',
+        }
+      );
+    } else {
+      // Default behavior for other platforms
+      toast.promise(
+        new Promise((resolve) => setTimeout(resolve, 1000)), 
+        {
+          loading: `Connecting to ${service}...`,
+          success: () => {
+            if (service === 'personal-mail') setPersonalMailEnabled(true);
+            else if (service === 'work-mail') setWorkMailEnabled(true);
+            else if (service === 'sms') setSmsEnabled(true);
+            else if (service === 'google-calendar') setGoogleCalendarEnabled(true);
+            else if (service === 'outlook-calendar') setOutlookCalendarEnabled(true);
+            else if (service === 'sms-scanning') setSmsScanning(true);
+            else if (service === 'whatsapp-scanning') setWhatsappScanning(true);
+            else if (service === 'telegram-scanning') setTelegramScanning(true);
+            
+            return `Connected to ${service} successfully!`;
+          },
+          error: 'Connection failed. Please try again.',
+        }
+      );
+    }
   };
   
   const handleDisconnect = (service: string) => {
@@ -109,32 +164,64 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
     toast.success(`Disconnected from ${service}`);
   };
   
-  // Toggle permission functions
+  // Toggle permission functions with Android-specific behavior
   const togglePermission = (permission: string) => {
-    console.log(`Toggling ${permission} permission...`);
+    console.log(`Toggling ${permission} permission on ${platform}...`);
     
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 800)), 
-      {
-        loading: `Updating permission...`,
-        success: () => {
-          if (permission === 'notifications') setNotificationsPermission(prev => !prev);
-          else if (permission === 'location') setLocationPermission(prev => !prev);
-          else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
-          
-          const newState = permission === 'notifications' ? !notificationsPermission : 
+    if (platform === 'android') {
+      toast.promise(
+        new Promise((resolve) => setTimeout(resolve, 1200)), 
+        {
+          loading: `Requesting Android permission for ${permission}...`,
+          success: () => {
+            if (permission === 'notifications') setNotificationsPermission(prev => !prev);
+            else if (permission === 'location') setLocationPermission(prev => !prev);
+            else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
+            
+            const newState = permission === 'notifications' ? !notificationsPermission : 
                           permission === 'location' ? !locationPermission : 
                           !backgroundSyncPermission;
-          
-          return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
-        },
-        error: 'Failed to update permission. Please try again.',
-      }
-    );
+            
+            return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
+          },
+          error: 'Permission denied. Please approve in Android settings.',
+        }
+      );
+    } else {
+      toast.promise(
+        new Promise((resolve) => setTimeout(resolve, 800)), 
+        {
+          loading: `Updating permission...`,
+          success: () => {
+            if (permission === 'notifications') setNotificationsPermission(prev => !prev);
+            else if (permission === 'location') setLocationPermission(prev => !prev);
+            else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
+            
+            const newState = permission === 'notifications' ? !notificationsPermission : 
+                          permission === 'location' ? !locationPermission : 
+                          !backgroundSyncPermission;
+            
+            return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
+          },
+          error: 'Failed to update permission. Please try again.',
+        }
+      );
+    }
   };
   
   return (
     <div className={cn("space-y-6", className)}>
+      {platform === 'android' && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-3">
+            <SmartphoneIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <p className="text-sm text-emerald-700 dark:text-emerald-300">
+              Android device detected. Native integration features available.
+            </p>
+          </div>
+        </div>
+      )}
+      
       <AnimatedTransition animation="slide-up" delay={100}>
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="email-integrations">
@@ -157,6 +244,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={personalMailEnabled}
                 onConnect={() => handleConnect('personal-mail')}
                 onDisconnect={() => handleDisconnect('personal-mail')}
+                platform={platform}
               />
               
               <IntegrationItem
@@ -166,6 +254,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={workMailEnabled}
                 onConnect={() => handleConnect('work-mail')}
                 onDisconnect={() => handleDisconnect('work-mail')}
+                platform={platform}
               />
               
               <IntegrationItem
@@ -175,6 +264,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={smsEnabled}
                 onConnect={() => handleConnect('sms')}
                 onDisconnect={() => handleDisconnect('sms')}
+                platform={platform}
               />
             </AccordionContent>
           </AccordionItem>
@@ -199,6 +289,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={googleCalendarEnabled}
                 onConnect={() => handleConnect('google-calendar')}
                 onDisconnect={() => handleDisconnect('google-calendar')}
+                platform={platform}
               />
               
               <IntegrationItem
@@ -208,6 +299,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={outlookCalendarEnabled}
                 onConnect={() => handleConnect('outlook-calendar')}
                 onDisconnect={() => handleDisconnect('outlook-calendar')}
+                platform={platform}
               />
             </AccordionContent>
           </AccordionItem>
@@ -232,6 +324,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={smsScanning}
                 onConnect={() => handleConnect('sms-scanning')}
                 onDisconnect={() => handleDisconnect('sms-scanning')}
+                platform={platform}
               />
               
               <IntegrationItem
@@ -241,6 +334,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={whatsappScanning}
                 onConnect={() => handleConnect('whatsapp-scanning')}
                 onDisconnect={() => handleDisconnect('whatsapp-scanning')}
+                platform={platform}
               />
               
               <IntegrationItem
@@ -250,6 +344,7 @@ const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) 
                 isConnected={telegramScanning}
                 onConnect={() => handleConnect('telegram-scanning')}
                 onDisconnect={() => handleDisconnect('telegram-scanning')}
+                platform={platform}
               />
             </AccordionContent>
           </AccordionItem>
@@ -361,7 +456,8 @@ const IntegrationItem: React.FC<IntegrationItemProps> = ({
   icon,
   isConnected,
   onConnect,
-  onDisconnect
+  onDisconnect,
+  platform
 }) => {
   return (
     <div className="flex items-start justify-between">
@@ -408,8 +504,11 @@ const IntegrationItem: React.FC<IntegrationItemProps> = ({
           variant="outline" 
           size="sm"
           onClick={onConnect}
+          className={cn(
+            platform === 'android' && "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200"
+          )}
         >
-          Connect
+          {platform === 'android' ? "Allow Access" : "Connect"}
         </Button>
       )}
     </div>
