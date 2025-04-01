@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { 
@@ -26,6 +25,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import AnimatedTransition from './AnimatedTransition';
+import { useAuth } from '@/context/AuthContext';
 
 interface IntegrationSettingsProps {
   className?: string;
@@ -49,7 +49,6 @@ interface PermissionItemProps {
   onToggle: () => void;
 }
 
-// Detect platform (simplified version)
 const detectPlatform = (): 'android' | 'ios' | 'web' => {
   const userAgent = navigator.userAgent.toLowerCase();
   if (/android/i.test(userAgent)) return 'android';
@@ -57,156 +56,258 @@ const detectPlatform = (): 'android' | 'ios' | 'web' => {
   return 'web';
 };
 
-const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) => {
-  // Platform detection
-  const [platform, setPlatform] = useState<'android' | 'ios' | 'web'>('web');
+const createAndroidIntent = (action: string, type: string, packageName?: string): string => {
+  let intentUrl = `intent:#Intent;action=${action};`;
   
-  // Email integrations
+  if (type) {
+    intentUrl += `type=${type};`;
+  }
+  
+  if (packageName) {
+    intentUrl += `package=${packageName};`;
+  }
+  
+  intentUrl += 'end';
+  return intentUrl;
+};
+
+const IntegrationSettings: React.FC<IntegrationSettingsProps> = ({ className }) => {
+  const [platform, setPlatform] = useState<'android' | 'ios' | 'web'>('web');
+  const { user } = useAuth();
+  
   const [personalMailEnabled, setPersonalMailEnabled] = React.useState(false);
   const [workMailEnabled, setWorkMailEnabled] = React.useState(false);
   const [smsEnabled, setSmsEnabled] = React.useState(false);
   
-  // Calendar integrations
   const [googleCalendarEnabled, setGoogleCalendarEnabled] = React.useState(false);
   const [outlookCalendarEnabled, setOutlookCalendarEnabled] = React.useState(false);
   
-  // Message scanning
   const [smsScanning, setSmsScanning] = React.useState(false);
   const [whatsappScanning, setWhatsappScanning] = React.useState(false);
   const [telegramScanning, setTelegramScanning] = React.useState(false);
   
-  // Permissions
   const [notificationsPermission, setNotificationsPermission] = useState(false);
   const [locationPermission, setLocationPermission] = useState(false);
   const [backgroundSyncPermission, setBackgroundSyncPermission] = useState(false);
   
   useEffect(() => {
+    if (user && user.user_metadata) {
+      const integrations = user.user_metadata.integrations || {};
+      
+      if (integrations.gmail) setPersonalMailEnabled(true);
+      if (integrations.outlook) setWorkMailEnabled(true);
+      if (integrations.sms) setSmsEnabled(true);
+      if (integrations.googleCalendar) setGoogleCalendarEnabled(true);
+      if (integrations.outlookCalendar) setOutlookCalendarEnabled(true);
+      if (integrations.notifications) setNotificationsPermission(true);
+      if (integrations.location) setLocationPermission(true);
+    }
+    
     setPlatform(detectPlatform());
-  }, []);
+  }, [user]);
   
-  // Mock connect/disconnect functions with platform-specific behavior
   const handleConnect = (service: string) => {
     console.log(`Connecting to ${service} on ${platform}...`);
     
-    // Android-specific permission request simulation
     if (platform === 'android') {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1500)), 
-        {
-          loading: `Requesting Android permission for ${service}...`,
-          success: () => {
-            if (service === 'personal-mail') {
-              toast.info('Opening Gmail account selection');
-              setTimeout(() => setPersonalMailEnabled(true), 1000);
-            }
-            else if (service === 'work-mail') {
-              toast.info('Opening Outlook account selection');
-              setTimeout(() => setWorkMailEnabled(true), 1000);
-            }
-            else if (service === 'sms') {
-              toast.info('Requesting SMS permission');
-              setTimeout(() => setSmsEnabled(true), 1000);
-            }
-            else if (service === 'google-calendar') {
-              toast.info('Opening Google Calendar selection');
-              setTimeout(() => setGoogleCalendarEnabled(true), 1000);
-            }
-            else if (service === 'outlook-calendar') {
-              toast.info('Opening Outlook Calendar selection');
-              setTimeout(() => setOutlookCalendarEnabled(true), 1000);
-            }
-            else if (service === 'sms-scanning') setSmsScanning(true);
-            else if (service === 'whatsapp-scanning') setWhatsappScanning(true);
-            else if (service === 'telegram-scanning') setTelegramScanning(true);
-            
-            return `Permission granted for ${service}`;
-          },
-          error: 'Permission denied. Please try again and approve the permission request.',
-        }
-      );
+      let intentUrl = '';
+      let permissionPrompt = '';
+      
+      switch (service) {
+        case 'personal-mail':
+          intentUrl = createAndroidIntent('android.intent.action.VIEW', 'message/rfc822', 'com.google.android.gm');
+          permissionPrompt = 'Opening Gmail account selection';
+          break;
+          
+        case 'work-mail':
+          intentUrl = createAndroidIntent('android.intent.action.VIEW', 'message/rfc822', 'com.microsoft.office.outlook');
+          permissionPrompt = 'Opening Outlook account selection';
+          break;
+          
+        case 'google-calendar':
+          intentUrl = createAndroidIntent('android.intent.action.VIEW', 'vnd.android.cursor.item/event', 'com.google.android.calendar');
+          permissionPrompt = 'Opening Google Calendar';
+          break;
+          
+        case 'outlook-calendar':
+          intentUrl = createAndroidIntent('android.intent.action.VIEW', 'vnd.android.cursor.item/event', 'com.microsoft.office.outlook');
+          permissionPrompt = 'Opening Outlook Calendar';
+          break;
+          
+        case 'sms':
+          intentUrl = 'sms:';
+          permissionPrompt = 'Requesting SMS permission';
+          break;
+          
+        default:
+          simulateConnection(service);
+          return;
+      }
+      
+      toast.info(permissionPrompt);
+      
+      try {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = intentUrl;
+        document.body.appendChild(iframe);
+        
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          updateConnectionState(service, true);
+          toast.success(`Connected to ${service}`);
+        }, 1000);
+      } catch (error) {
+        console.error('Error opening intent:', error);
+        toast.error(`Could not open ${service} app. Please try installing it first.`);
+      }
     } else {
-      // Default behavior for other platforms
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1000)), 
-        {
-          loading: `Connecting to ${service}...`,
-          success: () => {
-            if (service === 'personal-mail') setPersonalMailEnabled(true);
-            else if (service === 'work-mail') setWorkMailEnabled(true);
-            else if (service === 'sms') setSmsEnabled(true);
-            else if (service === 'google-calendar') setGoogleCalendarEnabled(true);
-            else if (service === 'outlook-calendar') setOutlookCalendarEnabled(true);
-            else if (service === 'sms-scanning') setSmsScanning(true);
-            else if (service === 'whatsapp-scanning') setWhatsappScanning(true);
-            else if (service === 'telegram-scanning') setTelegramScanning(true);
-            
-            return `Connected to ${service} successfully!`;
-          },
-          error: 'Connection failed. Please try again.',
-        }
-      );
+      simulateConnection(service);
+    }
+  };
+  
+  const simulateConnection = (service: string) => {
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 1000)), 
+      {
+        loading: `Connecting to ${service}...`,
+        success: () => {
+          updateConnectionState(service, true);
+          return `Connected to ${service} successfully!`;
+        },
+        error: 'Connection failed. Please try again.',
+      }
+    );
+  };
+  
+  const updateConnectionState = (service: string, state: boolean) => {
+    switch (service) {
+      case 'personal-mail':
+        setPersonalMailEnabled(state);
+        break;
+      case 'work-mail':
+        setWorkMailEnabled(state);
+        break;
+      case 'sms':
+        setSmsEnabled(state);
+        break;
+      case 'google-calendar':
+        setGoogleCalendarEnabled(state);
+        break;
+      case 'outlook-calendar':
+        setOutlookCalendarEnabled(state);
+        break;
+      case 'sms-scanning':
+        setSmsScanning(state);
+        break;
+      case 'whatsapp-scanning':
+        setWhatsappScanning(state);
+        break;
+      case 'telegram-scanning':
+        setTelegramScanning(state);
+        break;
+      case 'notifications':
+        setNotificationsPermission(state);
+        break;
+      case 'location':
+        setLocationPermission(state);
+        break;
+      case 'background-sync':
+        setBackgroundSyncPermission(state);
+        break;
     }
   };
   
   const handleDisconnect = (service: string) => {
     console.log(`Disconnecting from ${service}...`);
-    
-    // For demo, just toggle the state
-    if (service === 'personal-mail') setPersonalMailEnabled(false);
-    else if (service === 'work-mail') setWorkMailEnabled(false);
-    else if (service === 'sms') setSmsEnabled(false);
-    else if (service === 'google-calendar') setGoogleCalendarEnabled(false);
-    else if (service === 'outlook-calendar') setOutlookCalendarEnabled(false);
-    else if (service === 'sms-scanning') setSmsScanning(false);
-    else if (service === 'whatsapp-scanning') setWhatsappScanning(false);
-    else if (service === 'telegram-scanning') setTelegramScanning(false);
-    
+    updateConnectionState(service, false);
     toast.success(`Disconnected from ${service}`);
   };
   
-  // Toggle permission functions with Android-specific behavior
   const togglePermission = (permission: string) => {
     console.log(`Toggling ${permission} permission on ${platform}...`);
     
     if (platform === 'android') {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 1200)), 
-        {
-          loading: `Requesting Android permission for ${permission}...`,
-          success: () => {
-            if (permission === 'notifications') setNotificationsPermission(prev => !prev);
-            else if (permission === 'location') setLocationPermission(prev => !prev);
-            else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
-            
-            const newState = permission === 'notifications' ? !notificationsPermission : 
-                          permission === 'location' ? !locationPermission : 
-                          !backgroundSyncPermission;
-            
-            return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
-          },
-          error: 'Permission denied. Please approve in Android settings.',
-        }
-      );
+      let intentUrl = '';
+      
+      switch (permission) {
+        case 'notifications':
+          intentUrl = 'package:' + window.location.hostname;
+          openAndroidSettings('android.settings.APP_NOTIFICATION_SETTINGS', intentUrl);
+          break;
+        case 'location':
+          openAndroidSettings('android.settings.LOCATION_SOURCE_SETTINGS');
+          break;
+        case 'background-sync':
+          openAndroidSettings('android.settings.SYNC_SETTINGS');
+          break;
+        default:
+          simulateTogglePermission(permission);
+          return;
+      }
     } else {
-      toast.promise(
-        new Promise((resolve) => setTimeout(resolve, 800)), 
-        {
-          loading: `Updating permission...`,
-          success: () => {
-            if (permission === 'notifications') setNotificationsPermission(prev => !prev);
-            else if (permission === 'location') setLocationPermission(prev => !prev);
-            else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
-            
-            const newState = permission === 'notifications' ? !notificationsPermission : 
-                          permission === 'location' ? !locationPermission : 
-                          !backgroundSyncPermission;
-            
-            return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
-          },
-          error: 'Failed to update permission. Please try again.',
-        }
-      );
+      simulateTogglePermission(permission);
     }
+  };
+  
+  const openAndroidSettings = (action: string, data?: string) => {
+    try {
+      let intentUrl = `intent:#Intent;action=${action};`;
+      
+      if (data) {
+        intentUrl += `data=${data};`;
+      }
+      
+      intentUrl += 'end';
+      
+      toast.info('Opening system settings for permission');
+      
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = intentUrl;
+      document.body.appendChild(iframe);
+      
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        switch (action) {
+          case 'android.settings.APP_NOTIFICATION_SETTINGS':
+            setNotificationsPermission(true);
+            break;
+          case 'android.settings.LOCATION_SOURCE_SETTINGS':
+            setLocationPermission(true);
+            break;
+          case 'android.settings.SYNC_SETTINGS':
+            setBackgroundSyncPermission(true);
+            break;
+        }
+        
+        toast.success('Permission granted');
+      }, 1500);
+    } catch (error) {
+      console.error('Error opening settings:', error);
+      toast.error('Could not open system settings');
+    }
+  };
+  
+  const simulateTogglePermission = (permission: string) => {
+    toast.promise(
+      new Promise((resolve) => setTimeout(resolve, 800)), 
+      {
+        loading: `Updating permission...`,
+        success: () => {
+          if (permission === 'notifications') setNotificationsPermission(prev => !prev);
+          else if (permission === 'location') setLocationPermission(prev => !prev);
+          else if (permission === 'background-sync') setBackgroundSyncPermission(prev => !prev);
+          
+          const newState = permission === 'notifications' ? !notificationsPermission : 
+                        permission === 'location' ? !locationPermission : 
+                        !backgroundSyncPermission;
+          
+          return `${permission} permission ${newState ? 'enabled' : 'disabled'}`;
+        },
+        error: 'Failed to update permission. Please try again.',
+      }
+    );
   };
   
   return (
