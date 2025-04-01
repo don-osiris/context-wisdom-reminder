@@ -10,6 +10,7 @@ import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { toast } from 'sonner';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,7 +25,12 @@ const Login = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    await signInWithGoogle();
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      toast.error('Failed to sign in with Google. Please try again.');
+      console.error('Google signin error:', error);
+    }
   };
 
   return (

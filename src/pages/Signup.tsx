@@ -9,6 +9,7 @@ import GoogleIcon from '@/components/icons/GoogleIcon';
 import AnimatedTransition from '@/components/AnimatedTransition';
 import { useAuth } from '@/context/AuthContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -24,7 +25,12 @@ const Signup = () => {
   };
 
   const handleGoogleSignup = async () => {
-    await signInWithGoogle();
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      toast.error('Failed to sign in with Google. Please try again.');
+      console.error('Google signup error:', error);
+    }
   };
 
   return (

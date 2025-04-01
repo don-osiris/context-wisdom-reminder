@@ -27,13 +27,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
       }
     );
 
+    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -68,16 +71,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
+      
+      // Get the current URL origin for proper redirect
+      const redirectUrl = window.location.origin + '/home';
+      console.log('Redirecting to:', redirectUrl);
+      
+      const { error, data } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/home',
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
       
       if (error) {
         throw error;
       }
+      
+      // Log OAuth URL for debugging
+      console.log('OAuth URL:', data?.url);
       
       // No toast here as the user will be redirected away
     } catch (error: any) {
