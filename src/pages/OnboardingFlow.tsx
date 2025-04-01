@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -29,6 +28,28 @@ interface IntegrationStatus {
   location: boolean;
 }
 
+const detectPlatform = (): 'android' | 'ios' | 'web' => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  if (/android/i.test(userAgent)) return 'android';
+  if (/iphone|ipad|ipod/i.test(userAgent)) return 'ios';
+  return 'web';
+};
+
+const createAndroidIntent = (action: string, type: string, packageName?: string): string => {
+  let intentUrl = `intent:#Intent;action=${action};`;
+  
+  if (type) {
+    intentUrl += `type=${type};`;
+  }
+  
+  if (packageName) {
+    intentUrl += `package=${packageName};`;
+  }
+  
+  intentUrl += 'end';
+  return intentUrl;
+};
+
 const OnboardingFlow = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -43,51 +64,135 @@ const OnboardingFlow = () => {
     location: false
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [platform, setPlatform] = useState<'android' | 'ios' | 'web'>('web');
 
-  // Check if user is logged in
   useEffect(() => {
     if (!user) {
       navigate('/login', { state: { returnTo: '/onboarding' } });
     }
+    
+    setPlatform(detectPlatform());
+    
+    if (user && user.user_metadata && user.user_metadata.integrations) {
+      setIntegrations(prev => ({
+        ...prev,
+        ...user.user_metadata.integrations
+      }));
+    }
   }, [user, navigate]);
 
-  // Calculate progress
   const totalSteps = 5;
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
-  // Handle connecting services (simulated)
   const handleConnect = async (service: keyof IntegrationStatus) => {
     setIsLoading(true);
     
-    // Simulate API call for service connection
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
+    if (platform === 'android') {
+      try {
+        let intentUrl = '';
+        let permissionPrompt = '';
+        
+        switch (service) {
+          case 'gmail':
+            intentUrl = createAndroidIntent('android.intent.action.VIEW', 'message/rfc822', 'com.google.android.gm');
+            permissionPrompt = 'Opening Gmail account selection';
+            break;
+            
+          case 'outlook':
+            intentUrl = createAndroidIntent('android.intent.action.VIEW', 'message/rfc822', 'com.microsoft.office.outlook');
+            permissionPrompt = 'Opening Outlook account selection';
+            break;
+            
+          case 'googleCalendar':
+            intentUrl = createAndroidIntent('android.intent.action.VIEW', 'vnd.android.cursor.item/event', 'com.google.android.calendar');
+            permissionPrompt = 'Opening Google Calendar';
+            break;
+            
+          case 'outlookCalendar':
+            intentUrl = createAndroidIntent('android.intent.action.VIEW', 'vnd.android.cursor.item/event', 'com.microsoft.office.outlook');
+            permissionPrompt = 'Opening Outlook Calendar';
+            break;
+            
+          case 'sms':
+            intentUrl = 'sms:';
+            permissionPrompt = 'Requesting SMS permission';
+            break;
+            
+          case 'notifications':
+            intentUrl = 'package:' + window.location.hostname;
+            permissionPrompt = 'Opening notification settings';
+            break;
+            
+          case 'location':
+            intentUrl = createAndroidIntent('android.settings.LOCATION_SOURCE_SETTINGS', '');
+            permissionPrompt = 'Opening location settings';
+            break;
+        }
+        
+        if (intentUrl) {
+          toast.info(permissionPrompt);
+          
+          const iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = intentUrl;
+          document.body.appendChild(iframe);
+          
+          setTimeout(() => {
+            document.body.removeChild(iframe);
+            updateIntegrationStatus(service, true);
+          }, 1000);
+        } else {
+          simulateConnection(service);
+        }
+      } catch (error) {
+        console.error('Error opening intent:', error);
+        toast.error('Could not open app. Please ensure it is installed.');
+        setIsLoading(false);
+      }
+    } else {
+      simulateConnection(service);
+    }
+  };
+
+  const simulateConnection = (service: keyof IntegrationStatus) => {
+    setTimeout(() => {
+      updateIntegrationStatus(service, true);
+      setIsLoading(false);
+      toast.success(`Connected to ${service} successfully!`);
+    }, 1500);
+  };
+
+  const updateIntegrationStatus = async (service: keyof IntegrationStatus, isConnected: boolean) => {
     setIntegrations(prev => ({
       ...prev,
-      [service]: true
+      [service]: isConnected
     }));
     
-    setIsLoading(false);
-    toast.success(`Connected to ${service} successfully!`);
-    
-    // Save integration status to user metadata
     if (user) {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          integrations: {
-            ...user.user_metadata?.integrations,
-            [service]: true
+      try {
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            integrations: {
+              ...user.user_metadata?.integrations,
+              [service]: isConnected
+            }
           }
+        });
+        
+        if (error) {
+          console.error('Error saving integration status:', error);
+          toast.error('Failed to save connection status');
         }
-      });
-      
-      if (error) {
-        console.error('Error saving integration status:', error);
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error updating user:', error);
+        setIsLoading(false);
+        toast.error('Connection error');
       }
     }
   };
 
-  // Check if current step is completed
   const isStepCompleted = () => {
     switch (currentStep) {
       case 0: // Welcome screen
@@ -105,7 +210,6 @@ const OnboardingFlow = () => {
     }
   };
 
-  // Navigate to next step
   const nextStep = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
@@ -114,18 +218,15 @@ const OnboardingFlow = () => {
     }
   };
 
-  // Navigate to previous step
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  // Complete onboarding and navigate to home
   const completeOnboarding = async () => {
     setIsLoading(true);
     
-    // Mark onboarding as completed in user metadata
     if (user) {
       const { error } = await supabase.auth.updateUser({
         data: {
@@ -142,7 +243,6 @@ const OnboardingFlow = () => {
     navigate('/home');
   };
 
-  // Skip onboarding
   const skipOnboarding = () => {
     navigate('/home');
   };
@@ -502,7 +602,7 @@ const OnboardingFlow = () => {
               Back
             </Button>
           ) : (
-            <div></div> // Empty div to maintain flex layout
+            <div></div>
           )}
           
           <Button 
